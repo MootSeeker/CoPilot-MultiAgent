@@ -351,3 +351,54 @@ No diagnostics reported for the changed header/source/test files in the state-ma
 
 - No static implementation defects were detected in the retry-aware state-machine slice.
 - Behavioural execution is blocked by missing host compiler tooling; ESP-IDF runtime validation remains blocked separately by the missing ESP-IDF environment.
+
+## Update — 2026-05-14
+
+**Validator run**: 2026-05-14 00:00 UTC
+
+### Build
+
+**Command**: `editor diagnostics on queue handoff files`  
+**Result**: PASS
+
+```text
+No syntax or editor-detected errors were reported for:
+- include/esp32_wifi_manager/WifiManagerEventQueue.hpp
+- include/esp32_wifi_manager/WifiManager.hpp
+- src/WifiManager.cpp
+- tests/WifiManagerStateMachine.test.cpp
+```
+
+### Tests
+
+**Command**: `tests/WifiManagerStateMachine.test.cpp extended but not run`  
+**Scope**: host-side queue regression coverage for FIFO ordering and fixed-capacity rejection, alongside the existing state-machine checks  
+**Result**: NOT YET APPLICABLE in current environment
+
+```text
+The prepared host-side test file now covers:
+- retry threshold fallback behaviour
+- retry reset after success/provisioning
+- FIFO event ordering in WifiManagerEventQueue
+- queue full rejection at the configured fixed capacity
+
+Execution remains blocked because no host C++ compiler is installed on this machine.
+```
+
+### Lint / Type Check
+
+**Command**: `editor diagnostics`  
+**Result**: PASS
+
+```text
+No diagnostics reported for the changed queue, manager, and test files.
+```
+
+### Overall Verdict
+
+**PASS**
+
+### Failure Details
+
+- No static implementation defects were detected in the queue handoff slice.
+- Executable validation is still blocked by the missing host compiler and ESP-IDF environment.

@@ -292,3 +292,45 @@ Ported the next state-machine slice by adding explicit connection success/failur
 - Retry timing/backoff is still policy-only; there is no timer-driven reconnect scheduling yet.
 - The manager still needs the asynchronous event queue and ESP-IDF adapters that will emit these new connection outcome events.
 - The new host-side tests are prepared but cannot yet run in this environment because no host C++ compiler is installed.
+
+## Update — 2026-05-14
+
+**Implementer run**: 2026-05-14 00:00 UTC  
+**Work Package**: WP-2
+
+### Summary
+
+Added the next handoff slice by introducing a small FIFO `WifiManagerEventQueue` and wiring `WifiManager` with `EnqueueEvent()` and `ProcessNextEvent()`. This gives future HTTP handlers, WiFi callbacks, or task loops a neutral buffering boundary that matches the explored BekantX architecture without pulling FreeRTOS queue dependencies into the module yet.
+
+### Files Modified
+
+| File | Change type | Summary |
+|------|------------|---------|
+| `include/esp32_wifi_manager/WifiManagerEventQueue.hpp` | added | Added a fixed-capacity FIFO event queue for manager events. |
+| `include/esp32_wifi_manager/WifiManager.hpp` | modified | Added enqueue/process APIs and tracked pending events through the manager. |
+| `src/WifiManager.cpp` | modified | Cleared the queue on lifecycle boundaries and routed queued events through `DispatchEvent()`. |
+| `tests/WifiManagerStateMachine.test.cpp` | modified | Extended host-side tests to cover FIFO ordering and queue capacity behaviour. |
+
+### Key Decisions
+
+- Kept the queue header-only and dependency-free so it stays usable from both host-side tests and the ESP-IDF component without extra runtime glue.
+- Preserved `DispatchEvent()` as the direct synchronous path while adding queued ingress APIs, which keeps current behaviour intact and lets later runtime code adopt the queue incrementally.
+- Cleared queued events on `Init()` and `Stop()` so stale portal or connection events cannot leak across lifecycle restarts.
+
+### Diff Highlights
+
+```diff
++ include/esp32_wifi_manager/WifiManagerEventQueue.hpp
+~ include/esp32_wifi_manager/WifiManager.hpp
+~ src/WifiManager.cpp
+~ tests/WifiManagerStateMachine.test.cpp
+```
+
+### Formatter Run
+
+- [x] Formatter executed on all modified files
+
+### Open Questions / Deferred Items
+
+- The queue is still polled manually; it is not yet backed by a task loop or FreeRTOS event source.
+- The actual ESP-IDF WiFi and provisioning adapters still need to enqueue real connection and credential events into this boundary.
