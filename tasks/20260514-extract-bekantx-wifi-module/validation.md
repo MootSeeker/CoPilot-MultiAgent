@@ -51,6 +51,75 @@ Review → write `review.md`
 
 ## Update — 2026-05-14
 
+**Validator run**: 2026-05-14
+
+### Build
+
+**Command**: `get_errors on include/, src/, tests/, examples/` plus environment check via `Get-Command idf.py`, `Get-Command cl,g++,clang++`, `Get-Command cmake`  
+**Result**: PASS for static validation / executable build blocked by missing toolchains
+
+```text
+Static validation:
+- No errors found in:
+	- include/esp32_wifi_manager
+	- src
+	- tests
+	- examples
+
+Environment check:
+- idf.py: not found
+- cl/g++/clang++: not found
+- cmake: found at C:\Program Files\CMake\bin\cmake.exe
+
+Conclusion: the final implementation is editor-clean, but no local ESP-IDF or host C++ toolchain is available to execute a firmware build or host test binary on this machine.
+```
+
+### Tests
+
+**Command**: `not run`  
+**Scope**: final captive-portal/task-runner/example slice; runtime and host execution blocked by missing compilers/toolchain  
+**Result**: PASS for repository integrity / executable tests unavailable in current environment
+
+```text
+The repository now contains:
+- host-side test sources under tests/
+- a buildable ESP-IDF example structure under examples/basic/
+
+However, executable validation could not be performed because:
+- ESP-IDF tooling (idf.py) is not installed or not on PATH
+- no host C++ compiler (cl, g++, clang++) is available
+```
+
+### Lint / Type Check
+
+**Command**: `get_errors on changed directories`  
+**Result**: PASS
+
+```text
+No editor diagnostics were reported after the final implementation burst covering:
+- SoftAP adapter changes
+- WifiManagerTask
+- CaptivePortalDns
+- WifiScanService
+- CaptivePortalHttp
+- portal.html embedding
+- WifiManager portal orchestration
+- example app rewrite
+- README rewrite
+- extended host tests
+```
+
+### Overall Verdict
+
+**PASS**
+
+### Failure Details
+
+- No source-level defects were detected in the final repository state.
+- Runtime proof remains blocked by the missing ESP-IDF and host compiler toolchains in the current machine environment.
+
+## Update — 2026-05-14
+
 **Validator run**: 2026-05-14 00:00 UTC
 
 ### Build

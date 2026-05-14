@@ -2,32 +2,84 @@
 
 **Task ID**: 20260514-extract-bekantx-wifi-module  
 **Phase**: IMPLEMENT  
-**Implementer run**: <!-- YYYY-MM-DD HH:MM UTC -->  
-**Work Package**: <!-- WP-N from plan.md -->
+**Implementer run**: 2026-05-14  
+**Work Package**: WP — SoftAP mode in WifiManagerEspIdfAdapter
 
 ## Summary
 
-<!-- One paragraph: what was changed and why. -->
+Added SoftAP support to `WifiManagerEspIdfAdapter`. When `ApplyState(kPortal)` is called the adapter switches to `WIFI_MODE_APSTA`, creates an AP netif, configures it with a MAC-suffixed SSID and open auth, and logs the AP SSID. Transitions to `kConnecting` or `kStopped` tear down the AP netif and revert to `WIFI_MODE_STA`. `Deinit()` also destroys the AP netif if owned.
 
 ## Files Modified
 
 | File | Change type | Summary |
 |------|------------|---------|
-| `src/example.ts` | modified | |
+| `include/esp32_wifi_manager/WifiManagerEspIdfAdapter.hpp` | modified | Added `apNetif_`, `ownsApNetif_`, `StartSoftAp()`, `StopSoftAp()` |
+| `src/WifiManagerEspIdfAdapter.cpp` | modified | Implemented `StartSoftAp`/`StopSoftAp`, updated `kPortal`/`kConnecting`/`kStopped` cases, added AP netif cleanup in `Deinit` |
 
 ## Key Decisions
 
-<!-- Any implementation decisions that deviate from or go beyond plan.md. Explain the reasoning. -->
-
-- 
+- `StartSoftAp` is idempotent — early-returns `ESP_OK` if `apNetif_` is already set, avoiding double-create.
+- `StopSoftAp` is idempotent — no-op if `apNetif_ == nullptr`, safe to call from any transition.
+- `kPortal` now calls `EnsureWifiStarted()` if WiFi isn't running yet (previously returned early), so the AP can actually start.
+- AP SSID uses `std::snprintf` with last 3 MAC bytes in uppercase hex.
 
 ## Diff Highlights
 
-<!-- Paste or describe the most important diff sections — the ones a reviewer must understand. -->
+### Header — new members and methods
 
 ```diff
-// key change here
++    esp_err_t StartSoftAp();
++    esp_err_t StopSoftAp();
+     ...
++    esp_netif_t* apNetif_ = nullptr;
+     ...
++    bool ownsApNetif_ = false;
 ```
+
+### kPortal — start SoftAP after disconnecting station
+
+```diff
+     case WifiState::kPortal:
+         scheduledReconnectDelayMs_ = 0;
+-        if (!wifiStarted_) { return ESP_OK; }
+-        { ... disconnect ... return disconnectResult; }
++        if (!wifiStarted_) { EnsureWifiStarted(); }
++        else { disconnect station; }
++        return StartSoftAp();
+```
+
+### kConnecting — tear down AP before connecting
+
+```diff
+-    case WifiState::kConnecting:
+-        return ConnectStation(credentials);
++    case WifiState::kConnecting: {
++        StopSoftAp();
++        return ConnectStation(credentials);
++    }
+```
+
+### kStopped — tear down AP before stopping WiFi
+
+```diff
+     case WifiState::kStopped:
++        StopSoftAp();
+         ...existing disconnect + stop logic...
+```
+
+### Deinit — destroy AP netif before STA netif
+
+```diff
++    if (ownsApNetif_ && apNetif_ != nullptr) {
++        esp_netif_destroy_default_wifi(apNetif_);
++        apNetif_ = nullptr; ownsApNetif_ = false;
++    }
+     if (ownsStaNetif_ && staNetif_ != nullptr) { ... }
+```
+
+## Formatter
+
+Not run — no project formatter command configured for this ESP-IDF C++ project.
 
 ## Formatter Run
 
@@ -86,6 +138,89 @@ Created the first standalone scaffold in the target repository `MootSeeker/ESP32
 
 - The actual BekantX provisioning portal, credential store, and ESP-IDF event-driven state machine still need to be ported into this scaffold.
 - MQTT passthrough fields from BekantX remain explicitly deferred from the first extraction slice.
+
+---
+
+## Update — 2026-05-14 (CaptivePortalDns)
+
+**Implementer run**: 2026-05-14  
+**Work Package**: WP-2
+
+### Summary
+
+Added the `CaptivePortalDns` component — a DNS hijack service that responds to all A-record queries with the ESP32's AP IP address, causing client devices to detect a captive portal and redirect to the provisioning page. This mirrors the `dns_hijack.c` helper from BekantX, re-implemented as an idiomatic C++ class inside the `esp32_wifi_manager` namespace.
+
+### Files Modified
+
+| File | Change type | Summary |
+|------|------------|---------|
+| `include/esp32_wifi_manager/CaptivePortalDns.hpp` | added | Public API: `Start(uint32_t apIpAddress)`, `Stop()`, `IsRunning()` with private DNS task and query processor. |
+| `src/CaptivePortalDns.cpp` | added | Full implementation: UDP socket on port 53, FreeRTOS task loop with 500ms recv timeout, minimal DNS response builder with bounds-checked question parsing. |
+
+### Key Decisions
+
+- `apIpAddress` is expected in network byte order (matching ESP-IDF's `esp_netif_ip_info_t.ip.addr` convention) — no `htonl` conversion applied.
+- Used `void*` for the FreeRTOS task handle in the header to avoid leaking FreeRTOS includes into consumers, matching the pattern established by `WifiManagerTask`.
+- Added bounds checking on DNS question section parsing to safely reject malformed packets instead of reading past the buffer.
+- `Stop()` polls for task exit with a bounded 1-second timeout and closes the socket as a safety net if the task didn't clean it up.
+- All DNS queries get the same A-record answer regardless of query type/class — this is intentional for captive portal detection.
+
+### Diff Highlights
+
+#### Header — public API
+
+```diff
++ class CaptivePortalDns {
++ public:
++     esp_err_t Start(uint32_t apIpAddress);
++     esp_err_t Stop();
++     bool IsRunning() const;
++ private:
++     static void DnsTask(void* arg);
++     void ProcessDnsQuery(...);
++     uint32_t apIpAddress_ = 0;
++     void* taskHandle_ = nullptr;
++     int socket_ = -1;
++     bool running_ = false;
++ };
+```
+
+#### Implementation — task loop core
+
+```diff
++ while (self->running_) {
++     int len = recvfrom(self->socket_, buffer, sizeof(buffer), 0, ...);
++     if (len < 0) {
++         if (errno == EAGAIN || errno == EWOULDBLOCK) continue;
++         continue;
++     }
++     if (len < kDnsHeaderSize) continue;
++     self->ProcessDnsQuery(self->socket_, buffer, len, &sourceAddr, addrLen);
++ }
+```
+
+#### Implementation — bounds-checked question parsing
+
+```diff
++ while (questionEnd < queryLength && queryBuffer[questionEnd] != 0) {
++     uint8_t labelLen = queryBuffer[questionEnd];
++     questionEnd += 1 + labelLen;
++     if (questionEnd > queryLength) {
++         ESP_LOGE(kTag, "Malformed DNS query: label exceeds packet");
++         return;
++     }
++ }
+```
+
+### Formatter Run
+
+- [x] Formatter executed on all modified files (no project formatter configured; manual style compliance)
+
+### Open Questions / Deferred Items
+
+- No unit tests added — DNS socket operations and FreeRTOS task spawning cannot be tested on host without mocking lwIP/FreeRTOS.
+- `CMakeLists.txt` has not been updated to include the new source file; this should be done when the provisioning layer is wired together.
+- The manager does not yet start/stop this component; integration into the portal state transition is deferred to the provisioning wiring slice.
 
 ## Update — 2026-05-14
 
@@ -537,6 +672,47 @@ Closed the follow-up runtime hardening pass on the ESP-IDF adapter/manager bound
 | `src/WifiManagerEspIdfAdapter.cpp` | modified | Hardened disconnect suppression, stop/deinit cleanup ordering, callback detachment, and ownership tracking across failed teardown. |
 | `src/WifiManager.cpp` | modified | Hardened zero-delay retries, stop-failure cleanup, destructor teardown logging, and synchronous adapter error escalation. |
 
+---
+
+## Update — 2026-05-14 (Host-Side Tests)
+
+**Implementer run**: 2026-05-14  
+**Work Package**: Extend host-side tests
+
+### Summary
+
+Added 8 new host-side test cases and a `bool` overload of `ExpectEqual` to the existing test file `tests/WifiManagerStateMachine.test.cpp`. All tests exercise pure-logic classes (`WifiManagerStateMachine`, `WifiRetryScheduler`, `WifiManagerEventQueue`) and require no ESP-IDF or FreeRTOS runtime.
+
+### Files Modified
+
+| File | Change type | Summary |
+|------|------------|---------|
+| `tests/WifiManagerStateMachine.test.cpp` | modified | Added `ExpectEqual(bool,bool,const char*)` overload; 8 new `Should*` test functions; 8 new calls in `main()`. |
+
+### New Test Functions
+
+1. `ShouldFallbackToPortalImmediatelyWhenZeroMaxAttempts` — verifies `OnConnectionFailed` with `maxConnectAttempts=0` transitions to `kPortal` immediately.
+2. `ShouldEnterPortalWhenNoStoredCredentials` — verifies `OnStart(false, false)` enters `kPortal`.
+3. `ShouldEnterPortalWhenForcedProvisioning` — verifies `OnStart(true, true)` enters `kPortal`.
+4. `ShouldTransitionFromPortalToConnectingOnCredentials` — verifies `OnCredentialsReceived` from portal transitions to `kConnecting` with attempts reset.
+5. `ShouldStopCleanly` — verifies `OnStop` from connected state transitions to `kStopped` with zeroed counters.
+6. `ShouldHandleZeroDelayReconnect` — verifies zero initial/max delay produces zero reconnect delay.
+7. `ShouldNotArmSchedulerWithZeroDelay` — verifies `Arm(0)` does not arm the retry scheduler.
+8. `ShouldHandleQueueClearCorrectly` — verifies `Clear()` resets size to 0 and queue remains usable afterward.
+
+### Key Decisions
+
+- Used `static_cast<bool>` for `queue.Push()` return value to match the `ExpectEqual(bool, ...)` overload without ambiguity.
+- Followed the existing pattern exactly: `bool` return, `ExpectEqual` assertions, early-return on failure.
+
+### Formatter Run
+
+- [x] No project formatter configured (no `.clang-format` present); code follows existing file style.
+
+### Next Phase
+
+Validate → write `validation.md`
+
 ### Key Decisions
 
 - Used repeated Reviewer subagent passes as the gating mechanism for closing the runtime hardening slice instead of assuming the first adapter implementation was good enough.
@@ -560,3 +736,265 @@ Closed the follow-up runtime hardening pass on the ESP-IDF adapter/manager bound
 
 - Runtime behaviour is still only statically validated here because neither a host compiler nor a configured ESP-IDF toolchain is available in the session.
 - The next functional milestone remains the provisioning runtime side and a real loop/timer driver around the now-hardened retry path.
+
+## Update — 2026-05-14
+
+**Implementer run**: 2026-05-14  
+**Work Package**: WP-2
+
+### Summary
+
+Added `WifiManagerTask`, a FreeRTOS self-running task wrapper that owns a `WifiManager` and runs it inside a dedicated FreeRTOS task. Adapter events are routed through a FreeRTOS `QueueHandle_t` instead of the in-memory `WifiManagerEventQueue`, and the task loop handles event dispatching and retry timer advancement automatically. Users only need `Init()`, `Start()`, `Stop()`.
+
+To support external queue routing, `WifiManager` gained a `SetExternalQueue(void*)` method. When set, `OnAdapterEvent` sends events to the FreeRTOS queue via `xQueueSendToBack` and skips the internal enqueue/process path. The task loop calls `DispatchEvent` directly after receiving from the queue.
+
+### Files Modified
+
+| File | Change type | Summary |
+|------|------------|---------|
+| `include/esp32_wifi_manager/WifiManager.hpp` | modified | Added `SetExternalQueue(void*)` public method and `externalQueue_` private member. |
+| `src/WifiManager.cpp` | modified | Added FreeRTOS queue include, `SetExternalQueue` implementation, and external-queue routing in `OnAdapterEvent`. |
+| `include/esp32_wifi_manager/WifiManagerTask.hpp` | added | New `WifiManagerTask` class declaration with `Init`/`Start`/`Stop`/`ForceProvisioning`/`GetState`/`GetRuntimeStatus`/`IsRunning`. |
+| `src/WifiManagerTask.cpp` | added | Full FreeRTOS task implementation: queue creation, task spawn, event dispatch loop, retry timer, graceful stop. |
+| `CMakeLists.txt` | modified | Added `WifiManagerTask.cpp` to SRCS and `freertos` to REQUIRES. |
+
+### Key Decisions
+
+- Used `void*` for queue and task handles in the public header to avoid leaking FreeRTOS includes into downstream consumers. Casts happen only in `.cpp` files.
+- `OnAdapterEvent` checks `externalQueue_` first: if non-null, events go to the FreeRTOS queue and the internal `EnqueueEvent`/`ProcessNextEvent` path is skipped entirely.
+- Task loop uses `xQueueReceive` with a 100ms timeout. Events are dispatched immediately; retry timer advances only on timeout (no event received).
+- `Stop()` sets `running_` to false, sends a dummy event to unblock `xQueueReceive`, then polls `taskHandle_` with a bounded wait. The task deletes itself via `vTaskDelete(nullptr)`.
+- `running_` is `std::atomic<bool>` for safe cross-task visibility.
+
+### Diff Highlights
+
+#### WifiManager.hpp — new public API and member
+
+```diff
++    void SetExternalQueue(void* queueHandle);
+     ...
++    void* externalQueue_ = nullptr;
+```
+
+#### WifiManager.cpp — OnAdapterEvent external queue routing
+
+```diff
++    if (manager->externalQueue_ != nullptr) {
++        auto queue = static_cast<QueueHandle_t>(manager->externalQueue_);
++        if (xQueueSendToBack(queue, &event, 0) != pdTRUE) {
++            return ESP_ERR_NO_MEM;
++        }
++        return ESP_OK;
++    }
+```
+
+#### WifiManagerTask.cpp — task loop
+
+```diff
++    while (running_.load()) {
++        WifiManagerEvent event{};
++        BaseType_t received = xQueueReceive(queue, &event, pdMS_TO_TICKS(kTickIntervalMs));
++        if (!running_.load()) break;
++        if (received == pdTRUE) {
++            manager_.DispatchEvent(event);
++        } else {
++            manager_.AdvanceRetryTimer(kTickIntervalMs);
++        }
++    }
+```
+
+### Formatter Run
+
+- [x] Formatter executed on all modified files (no project formatter configured; manual style compliance)
+
+### Open Questions / Deferred Items
+
+- No unit tests added for `WifiManagerTask` — FreeRTOS primitives cannot be tested on host without mocking. Integration testing requires a real ESP32 target or a FreeRTOS simulator.
+- The provisioning portal runtime layer remains deferred.
+- `Stop()` uses a polling wait for task exit; a `TaskNotify`-based join could be cleaner but adds complexity for negligible benefit.
+
+## Next Phase
+
+Validate → write `validation.md`
+
+## Update — 2026-05-14
+
+**Implementer run**: 2026-05-14  
+**Work Package**: WP-2 / WP-3
+
+### Summary
+
+Created the captive-portal HTML page and the ESP-IDF binary-embedding header. The portal replaces the BekantX-branded, German-language provisioning page with a clean, English, mobile-first WiFi setup UI suitable for a reusable open-source component. The embedding header provides the `asm` symbol declarations that ESP-IDF's `EMBED_FILES` mechanism requires.
+
+### Files Modified
+
+| File | Change type | Summary |
+|------|------------|---------|
+| `resources/portal.html` | added | Single-file responsive WiFi provisioning page with inline CSS/JS, network scanning, manual SSID entry, password show/hide, XSS-safe DOM rendering, and form submission to `/connect`. |
+| `src/portal_html.h` | added | ESP-IDF binary embedding declarations (`_binary_portal_html_start` / `_binary_portal_html_end`). |
+
+### Key Decisions
+
+- Used `textContent` exclusively for user-controlled data (SSID names) to prevent XSS; no `innerHTML` is used with untrusted data.
+- Kept all CSS and JS inline in a single file to satisfy the firmware embedding constraint and eliminate external dependencies.
+- Signal strength uses Unicode block characters (`▂▄▆█`) and lock icon uses the emoji `🔒` — no icon fonts or images required.
+- Password visibility toggle uses Unicode symbols (`◉`/`◎`) with an `aria-label` for accessibility.
+- Form POSTs to `/connect` with `application/x-www-form-urlencoded` body containing `ssid` and `password` fields.
+- Page auto-scans on load via `fetch('/scan')` and renders a sorted network list (strongest signal first).
+- Network list items are keyboard-navigable (`tabindex`, `role="button"`, `keydown` handler).
+- HTML is compact (~4KB) to stay well within the 8KB firmware budget.
+
+### Diff Highlights
+
+```diff
++ resources/portal.html   (new — full captive portal UI)
++ src/portal_html.h        (new — ESP-IDF embedding header)
+```
+
+### Formatter Run
+
+- [x] No project formatter configured for HTML; manual style compliance applied.
+- [x] C header follows project conventions (4-space indent, `#pragma once`).
+
+### Open Questions / Deferred Items
+
+- `CMakeLists.txt` does not yet reference `EMBED_FILES` for `resources/portal.html`; this should be added when the captive-portal HTTP server is integrated.
+- The captive-portal HTTP handler that serves this HTML and implements `/scan` and `/connect` endpoints is still deferred.
+
+## Update — 2026-05-14
+
+**Implementer run**: 2026-05-14  
+**Work Package**: WP-3 — CaptivePortalHttp
+
+### Summary
+
+Created the HTTP server component that serves the captive portal HTML page, handles WiFi scanning, and receives credentials from the user. Uses ESP-IDF `esp_http_server` with four URI handlers. Updated `CMakeLists.txt` to register the new source, add `esp_http_server`/`lwip` dependencies, and enable `EMBED_FILES` for `resources/portal.html`.
+
+### Files Modified
+
+| File | Change type | Summary |
+|------|------------|---------|
+| `include/esp32_wifi_manager/CaptivePortalHttp.hpp` | added | Public API: `Start(eventSink, eventContext, scanService, port)`, `Stop()`, `IsRunning()`. Internal handler context struct and static URI handler functions. |
+| `src/CaptivePortalHttp.cpp` | added | Full implementation: 4 URI handlers (`GET /`, `GET /scan`, `POST /connect`, `GET /generate_204`), URL-decode with bounds checking, form field extraction, JSON-safe SSID escaping. |
+| `CMakeLists.txt` | modified | Added `CaptivePortalDns.cpp` and `CaptivePortalHttp.cpp` to SRCS, `esp_http_server` and `lwip` to REQUIRES, `EMBED_FILES "resources/portal.html"`. |
+
+### Key Decisions
+
+- Used an `HttpHandlerContext` struct stored as a member (`ctx_`) and passed as `user_ctx` to all handlers, avoiding global state.
+- POST body limited to 256 bytes to prevent memory exhaustion on the constrained device.
+- URL-decode uses bounds-checked iteration with `%XX` hex parsing via `strtol` and `+`→space conversion.
+- `FindFormField` validates field name boundaries (`fieldName=` match) to avoid partial-name collisions (e.g. `myssid` won't match `ssid`).
+- JSON SSID escaping handles `"`, `\`, `\n`, `\r`, `\t`, and control chars below 0x20 using `\uXXXX` notation.
+- Passwords are never logged; only the SSID is logged on credential receipt.
+- `GET /generate_204` returns 302→`/` for Android captive portal detection.
+- Scan failure returns `[]` (empty JSON array) instead of an HTTP error, keeping the portal functional.
+
+### Diff Highlights
+
+#### Header — public API and handler context
+
+```diff
++ struct HttpHandlerContext {
++     CaptivePortalHttp* self;
++     WifiScanService* scanService;
++     WifiManagerEventSink eventSink;
++     void* eventContext;
++ };
++
++ class CaptivePortalHttp {
++ public:
++     esp_err_t Start(WifiManagerEventSink eventSink, void* eventContext,
++                     WifiScanService& scanService, uint16_t port);
++     esp_err_t Stop();
++     bool IsRunning() const;
++ };
+```
+
+#### CMakeLists.txt — new source, deps, and embed
+
+```diff
+  idf_component_register(
+      SRCS ...
++          "src/CaptivePortalDns.cpp"
++          "src/CaptivePortalHttp.cpp"
+      INCLUDE_DIRS "include"
+-     REQUIRES esp_common esp_event esp_netif esp_wifi freertos log nvs_flash
++     REQUIRES esp_common esp_event esp_http_server esp_netif esp_wifi freertos log lwip nvs_flash
++     EMBED_FILES "resources/portal.html"
+  )
+```
+
+### Formatter Run
+
+- [x] Formatter executed on all modified files (no project formatter configured; manual style compliance)
+
+### Open Questions / Deferred Items
+
+- No unit tests added — `esp_http_server` handlers require ESP-IDF runtime or substantial mocking.
+- The manager does not yet start/stop this component; integration into the portal state transition is deferred to the provisioning wiring slice.
+- `WifiScanService::StartScan()` is called synchronously in the scan handler; on a real device this blocks the HTTP handler thread until the scan completes (~2-4s).
+
+## Update — 2026-05-14
+
+**Implementer run**: 2026-05-14  
+**Work Package**: WP-3 — Example App Rewrite
+
+### Summary
+
+Rewrote the example app to be a complete working demo using `WifiManagerTask`. The example now initialises NVS, configures the WiFi manager with meaningful defaults, registers a state-change callback that logs all WiFi states (including IP address on connect and portal instructions), and runs a main loop that periodically checks connection status. Also created `sdkconfig.defaults` for sane build defaults and removed the explicit `REQUIRES` from the example's component CMake since auto-discovery via `EXTRA_COMPONENT_DIRS` handles it.
+
+### Files Modified
+
+| File | Change type | Summary |
+|------|------------|---------|
+| `examples/basic/main/main.cpp` | rewritten | Full working demo with NVS init, config, state callback with all states, and application main loop. |
+| `examples/basic/main/CMakeLists.txt` | modified | Removed explicit `REQUIRES ESP32-WiFiManager` — component auto-discovered via `EXTRA_COMPONENT_DIRS`. |
+| `examples/basic/sdkconfig.defaults` | added | Default SDK config: 4MB flash, single-app partition, info log level, 1000Hz tick. |
+| `examples/basic/CMakeLists.txt` | verified | Already correct — no changes needed. |
+
+### Key Decisions
+
+- Added `esp_netif.h`, `freertos/FreeRTOS.h`, and `freertos/task.h` includes for `IPSTR`/`IP2STR`, `vTaskDelay`, and `pdMS_TO_TICKS`.
+- Used `WifiManagerTask` (the FreeRTOS task wrapper) instead of raw `WifiManager` to demonstrate the recommended integration pattern.
+- Cast IP address via `(esp_ip4_addr_t*)&status.ipAddress` for `IP2STR` macro compatibility.
+- Removed `REQUIRES` from the example component CMake to avoid hard-coding the component directory name.
+
+### Diff Highlights
+
+#### main.cpp — complete rewrite
+
+```diff
+- #include "esp32_wifi_manager/WifiManager.hpp"
+- using namespace esp32_wifi_manager;
++ #include "esp32_wifi_manager/WifiManagerTask.hpp"
++ extern "C" {
++ #include "esp_log.h"
++ #include "esp_netif.h"
++ #include "freertos/FreeRTOS.h"
++ #include "freertos/task.h"
++ #include "nvs_flash.h"
++ }
+```
+
+#### CMakeLists.txt (main) — simplified
+
+```diff
+  idf_component_register(
+      SRCS "main.cpp"
+      INCLUDE_DIRS "."
+-     REQUIRES ESP32-WiFiManager
+  )
+```
+
+#### sdkconfig.defaults — new file
+
+```diff
++ CONFIG_ESPTOOLPY_FLASHSIZE_4MB=y
++ CONFIG_PARTITION_TABLE_SINGLE_APP=y
++ CONFIG_LOG_DEFAULT_LEVEL_INFO=y
++ CONFIG_FREERTOS_HZ=1000
+```
+
+### Formatter Run
+
+- [x] Formatter executed on all modified files (no project formatter configured; manual style compliance)
