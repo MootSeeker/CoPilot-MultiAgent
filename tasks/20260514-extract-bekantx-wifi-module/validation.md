@@ -565,3 +565,111 @@ No diagnostics reported for the changed adapter, manager, type, and test files.
 
 - No static implementation defects were detected in the ESP-IDF adapter slice.
 - Executable validation is still blocked by the missing host compiler and ESP-IDF environment.
+
+## Update — 2026-05-14
+
+**Validator run**: 2026-05-14 00:00 UTC
+
+### Build
+
+**Command**: `editor diagnostics on reviewer-driven runtime fixes, plus repeated Reviewer subagent passes on the adapter/manager lifecycle slice`  
+**Result**: PASS for local logic fixes; environment include-path warning still present for the ESP-IDF adapter translation unit
+
+```text
+No editor-detected issues were reported for:
+- include/esp32_wifi_manager/WifiManagerEspIdfAdapter.hpp
+- include/esp32_wifi_manager/WifiManager.hpp
+- src/WifiManager.cpp
+
+The Reviewer subagent no longer reported additional direct runtime bugs after the final lifecycle fixes.
+
+Environment-specific editor warning still present:
+- src/WifiManagerEspIdfAdapter.cpp reports unresolved includes for esp32_wifi_manager/WifiManagerEspIdfAdapter.hpp and esp_log.h because the local ESP-IDF includePath/toolchain configuration is not available in this session.
+
+This warning is consistent with the already-known missing ESP-IDF environment, not with a newly identified logic defect in the slice.
+```
+
+### Tests
+
+**Command**: `not run`  
+**Scope**: reviewer-driven lifecycle fixes on manager stop/deinit, intentional disconnect suppression, and retry-expiry processing  
+**Result**: NOT YET APPLICABLE in current environment
+
+```text
+The current environment still lacks:
+- a host C++ compiler for executing prepared unit tests
+- an ESP-IDF toolchain and include-path setup for building the adapter slice against real headers
+
+Validation of this fix block therefore remains static/review-based.
+```
+
+### Lint / Type Check
+
+**Command**: `editor diagnostics + Reviewer subagent audit`  
+**Result**: PASS with environment caveat
+
+```text
+The runtime-fix code changes are internally consistent after repeated review passes.
+The only remaining reported issue is the environment-level include-path warning for the ESP-IDF adapter translation unit.
+```
+
+### Overall Verdict
+
+**PASS**
+
+### Failure Details
+
+- No further direct logic defects were identified in the reviewed runtime-fix slice after the follow-up corrections.
+- Executable validation is still blocked by the missing host compiler and ESP-IDF environment.
+
+## Update — 2026-05-14
+
+**Validator run**: 2026-05-14 00:00 UTC
+
+### Build
+
+**Command**: `editor diagnostics on final runtime-hardening files, plus repeated Reviewer subagent audits until the adapter/manager slice had no direct remaining findings`  
+**Result**: PASS for local logic closure; environment include-path warning still present for the ESP-IDF adapter translation unit
+
+```text
+Local code diagnostics remain clean for:
+- include/esp32_wifi_manager/WifiManagerEspIdfAdapter.hpp
+- include/esp32_wifi_manager/WifiManager.hpp
+- src/WifiManager.cpp
+
+Final narrow Reviewer result:
+- no direct findings remain in src/WifiManagerEspIdfAdapter.cpp
+
+Environment-specific editor warning still present:
+- src/WifiManagerEspIdfAdapter.cpp cannot resolve ESP-IDF headers or the component include path in this session because the local ESP-IDF includePath/toolchain configuration is still missing.
+```
+
+### Tests
+
+**Command**: `not run`  
+**Scope**: final runtime-hardening fixes for adapter teardown, stop failure handling, and immediate retry re-entry  
+**Result**: NOT YET APPLICABLE in current environment
+
+```text
+Prepared host-side tests still cannot execute because no C++ compiler is installed.
+The ESP-IDF adapter slice still cannot be built end-to-end here because the session has no configured ESP-IDF toolchain/include path.
+```
+
+### Lint / Type Check
+
+**Command**: `editor diagnostics + Reviewer subagent audit`  
+**Result**: PASS with environment caveat
+
+```text
+The remaining reported issue is environment-specific include resolution for the ESP-IDF adapter translation unit.
+No further direct logic defects were identified by the final narrow review passes on the runtime hardening slice.
+```
+
+### Overall Verdict
+
+**PASS**
+
+### Failure Details
+
+- The runtime hardening slice is logically closed under static review.
+- Executable validation is still blocked by the missing host compiler and ESP-IDF environment.

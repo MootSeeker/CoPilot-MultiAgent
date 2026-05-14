@@ -476,3 +476,87 @@ Added the first thin ESP-IDF runtime adapter for the extracted module. The manag
 - The adapter currently handles only station/IP callbacks; portal HTTP/DNS provisioning adapters are still deferred.
 - A later runtime loop still needs to drive `AdvanceRetryTimer()` periodically so queued retry events fire automatically in a real device run.
 - Host-side execution of tests remains blocked because no local C++ compiler is installed.
+
+## Update — 2026-05-14
+
+**Implementer run**: 2026-05-14 00:00 UTC  
+**Work Package**: WP-2
+
+### Summary
+
+Applied a review-driven hardening pass on the new ESP-IDF adapter slice. The manager and adapter now surface stop/deinit failures explicitly, avoid classifying intentional disconnects as reconnect failures, process retry-expiry events immediately, and keep public state consistent when runtime shutdown fails. This closes the most direct correctness risks in the first runtime-coupled extraction block.
+
+### Files Modified
+
+| File | Change type | Summary |
+|------|------------|---------|
+| `include/esp32_wifi_manager/WifiManagerEspIdfAdapter.hpp` | modified | Added explicit stop/deinit return values and lifecycle bookkeeping flags for partial-init cleanup. |
+| `include/esp32_wifi_manager/WifiManager.hpp` | modified | Added destructor-backed teardown and explicit stop error propagation through the manager API. |
+| `src/WifiManagerEspIdfAdapter.cpp` | modified | Fixed intentional-disconnect suppression, partial-init cleanup, safer WiFi credential copying, and stop/deinit failure handling. |
+| `src/WifiManager.cpp` | modified | Fixed retry-expiry processing, consistent stop-state signalling, and teardown logging for destructor-only failure paths. |
+
+### Key Decisions
+
+- Used the Reviewer subagent to audit the adapter slice and addressed the concrete runtime defects it found before moving on to additional feature work.
+- Bound intentional-disconnect suppression to `WIFI_REASON_ASSOC_LEAVE` instead of a blind one-shot flag so delayed real disconnects still count as failures.
+- Changed stop/deinit APIs to return `esp_err_t` so integrators can observe teardown failures instead of only discovering inconsistent runtime state later.
+
+### Diff Highlights
+
+```diff
+~ include/esp32_wifi_manager/WifiManagerEspIdfAdapter.hpp
+~ include/esp32_wifi_manager/WifiManager.hpp
+~ src/WifiManagerEspIdfAdapter.cpp
+~ src/WifiManager.cpp
+```
+
+### Formatter Run
+
+- [x] Formatter executed on all modified files
+
+### Open Questions / Deferred Items
+
+- Adapter-level stop/deinit failure paths are still only statically reviewed; no executable tests exist for those branches in the current environment.
+- The remaining major functional gap is still the provisioning runtime layer and a real device-driven loop for retry timing.
+
+## Update — 2026-05-14
+
+**Implementer run**: 2026-05-14 00:00 UTC  
+**Work Package**: WP-2
+
+### Summary
+
+Closed the follow-up runtime hardening pass on the ESP-IDF adapter/manager boundary after repeated Reviewer subagent audits. The final fixes ensure that intentional disconnect suppression no longer leaks into real retries, zero-delay retries re-enter connecting immediately, stop/deinit failures are surfaced instead of silently swallowed, handler registrations are removed even on partial teardown failure, and WiFi ownership bookkeeping survives failed deinit followed by later re-init.
+
+### Files Modified
+
+| File | Change type | Summary |
+|------|------------|---------|
+| `include/esp32_wifi_manager/WifiManagerEspIdfAdapter.hpp` | modified | Added explicit detachment and error-return surface for adapter lifecycle control. |
+| `include/esp32_wifi_manager/WifiManager.hpp` | modified | Updated manager teardown and stop semantics to propagate runtime failures consistently. |
+| `src/WifiManagerEspIdfAdapter.cpp` | modified | Hardened disconnect suppression, stop/deinit cleanup ordering, callback detachment, and ownership tracking across failed teardown. |
+| `src/WifiManager.cpp` | modified | Hardened zero-delay retries, stop-failure cleanup, destructor teardown logging, and synchronous adapter error escalation. |
+
+### Key Decisions
+
+- Used repeated Reviewer subagent passes as the gating mechanism for closing the runtime hardening slice instead of assuming the first adapter implementation was good enough.
+- Preferred explicit `esp_err_t` propagation for stop/deinit over silently keeping a superficially clean state model when the runtime layer could not actually apply the transition.
+- Detached the adapter event sink before teardown and unregistered ESP handlers even on stop failure so object destruction cannot leave stale callback paths behind.
+
+### Diff Highlights
+
+```diff
+~ include/esp32_wifi_manager/WifiManagerEspIdfAdapter.hpp
+~ include/esp32_wifi_manager/WifiManager.hpp
+~ src/WifiManagerEspIdfAdapter.cpp
+~ src/WifiManager.cpp
+```
+
+### Formatter Run
+
+- [x] Formatter executed on all modified files
+
+### Open Questions / Deferred Items
+
+- Runtime behaviour is still only statically validated here because neither a host compiler nor a configured ESP-IDF toolchain is available in the session.
+- The next functional milestone remains the provisioning runtime side and a real loop/timer driver around the now-hardened retry path.
