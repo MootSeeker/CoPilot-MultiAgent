@@ -457,3 +457,59 @@ No diagnostics reported for the changed backoff-related header, source, and test
 
 - No static implementation defects were detected in the reconnect backoff slice.
 - Executable validation is still blocked by the missing host compiler and ESP-IDF environment.
+
+## Update — 2026-05-14
+
+**Validator run**: 2026-05-14 00:00 UTC
+
+### Build
+
+**Command**: `editor diagnostics on retry scheduler and waiting-state files`  
+**Result**: PASS
+
+```text
+No syntax or editor-detected errors were reported for:
+- include/esp32_wifi_manager/WifiRetryScheduler.hpp
+- include/esp32_wifi_manager/WifiManagerTypes.hpp
+- include/esp32_wifi_manager/WifiManagerStateMachine.hpp
+- include/esp32_wifi_manager/WifiManager.hpp
+- src/WifiManagerStateMachine.cpp
+- src/WifiManager.cpp
+- tests/WifiManagerStateMachine.test.cpp
+```
+
+### Tests
+
+**Command**: `tests/WifiManagerStateMachine.test.cpp extended but not run`  
+**Scope**: host-side regression coverage for waiting-to-retry transitions, retry-timer expiry, and scheduler cancellation  
+**Result**: NOT YET APPLICABLE in current environment
+
+```text
+The prepared host-side test file now covers:
+- retry threshold fallback behaviour
+- retry delay growth and cap behaviour
+- waiting-to-retry state after recoverable connection failures
+- retry timer expiry returning the state machine to connecting
+- retry scheduler partial advance and cancellation semantics
+- FIFO queue ordering and capacity rejection
+
+Execution remains blocked because no host C++ compiler is installed on this machine.
+```
+
+### Lint / Type Check
+
+**Command**: `editor diagnostics`  
+**Result**: PASS
+
+```text
+No diagnostics reported for the changed retry-scheduler, state-machine, manager, and test files.
+```
+
+### Overall Verdict
+
+**PASS**
+
+### Failure Details
+
+- No static implementation defects were detected in the retry-scheduler slice.
+- Executable validation is still blocked by the missing host compiler and ESP-IDF environment.

@@ -380,3 +380,51 @@ Added the bounded reconnect backoff policy identified during exploration to the 
 
 - The reconnect delay is policy-only until a later runtime layer actually waits/schedules between attempts.
 - The extracted module still lacks the ESP-IDF task loop or timer integration that will consume the recommended delay value.
+
+## Update — 2026-05-14
+
+**Implementer run**: 2026-05-14 00:00 UTC  
+**Work Package**: WP-2
+
+### Summary
+
+Turned the reconnect delay from passive metadata into an actionable retry boundary by adding a dedicated `WifiRetryScheduler`, a `kWaitingToRetry` manager state, and a `kRetryTimerElapsed` event. The manager can now advance a scheduler with elapsed time, enqueue a retry event when the delay expires, and re-enter `kConnecting` through the same event pipeline instead of reissuing retries out-of-band.
+
+### Files Modified
+
+| File | Change type | Summary |
+|------|------------|---------|
+| `include/esp32_wifi_manager/WifiRetryScheduler.hpp` | added | Added a small dependency-free retry timer abstraction. |
+| `include/esp32_wifi_manager/WifiManagerTypes.hpp` | modified | Added the `kWaitingToRetry` state and `kRetryTimerElapsed` event type. |
+| `include/esp32_wifi_manager/WifiManagerStateMachine.hpp` | modified | Added the retry-timer transition entry point. |
+| `include/esp32_wifi_manager/WifiManager.hpp` | modified | Added scheduler advancement to the manager's public runtime surface. |
+| `src/WifiManagerStateMachine.cpp` | modified | Changed retrying failures to enter `kWaitingToRetry` and resume connecting only when the retry timer elapses. |
+| `src/WifiManager.cpp` | modified | Wired scheduler arm/cancel behaviour into connection failures, success, provisioning, stop, and timer advancement. |
+| `tests/WifiManagerStateMachine.test.cpp` | modified | Added regression coverage for waiting-to-retry transitions and scheduler expiry/cancel behaviour. |
+
+### Key Decisions
+
+- Introduced an explicit waiting state instead of overloading `kConnecting`, so delayed retries and active connection attempts are distinguishable in the public state model.
+- Kept scheduler progression external via `AdvanceRetryTimer(elapsedMs)` rather than embedding a clock source, which preserves portability across host tests and future ESP-IDF runtime code.
+- Routed retry expiry back through the event queue, keeping all connection-attempt re-entry on the same event-driven path as the rest of the manager transitions.
+
+### Diff Highlights
+
+```diff
++ include/esp32_wifi_manager/WifiRetryScheduler.hpp
+~ include/esp32_wifi_manager/WifiManagerTypes.hpp
+~ include/esp32_wifi_manager/WifiManagerStateMachine.hpp
+~ include/esp32_wifi_manager/WifiManager.hpp
+~ src/WifiManagerStateMachine.cpp
+~ src/WifiManager.cpp
+~ tests/WifiManagerStateMachine.test.cpp
+```
+
+### Formatter Run
+
+- [x] Formatter executed on all modified files
+
+### Open Questions / Deferred Items
+
+- The scheduler currently advances only when a caller explicitly provides elapsed time; a future ESP-IDF task/timer layer still needs to drive it.
+- The actual WiFi station connect implementation remains deferred; the new retry event only models when the next attempt should begin.
