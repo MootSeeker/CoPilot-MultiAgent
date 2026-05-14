@@ -96,20 +96,20 @@ How to extend the scaffold with new agents, skills, MCP servers, and instruction
 
 1. **Add an entry to `.vscode/mcp.json.example`**:
    ```json
-   "my-server": {
+   "_my-server": {
+     "_about": "What this server does",
+     "_enable": "Rename this key from '_my-server' to 'my-server' to activate.",
      "command": "npx",
      "args": ["-y", "@org/my-mcp-server"],
      "env": {
        "API_KEY": "${env:MY_API_KEY}"
-     },
-     "_disabled": true,
-     "_note": "Remove _disabled to enable."
+     }
    }
    ```
 
 2. **Use environment variables for secrets** — never hardcode values.
 
-3. **Enable it locally**: copy/edit your `.vscode/mcp.json` (not the `.example` file) and remove `_disabled`.
+3. **Enable it locally**: copy/edit your `.vscode/mcp.json` (not the `.example` file) and rename the server key to remove the leading underscore.
 
 4. **Expose it in an agent** by adding `<server-name>/*` to the agent's `tools` list:
    ```yaml

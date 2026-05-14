@@ -32,10 +32,6 @@ pip install -r requirements.txt
 
 # Rust
 cargo fetch
-
-# ESP-IDF
-# idf.py and toolchain must already be on PATH
-# See the esp-idf-build skill for the full setup
 ```
 
 ### Step 2 — Build
@@ -52,9 +48,6 @@ python -m py_compile src/**/*.py
 
 # Rust
 cargo build
-
-# ESP-IDF
-idf.py build
 
 # C/C++ with CMake
 cmake --build build/
