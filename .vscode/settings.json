@@ -1,0 +1,19 @@
+{
+  // Enable Copilot agent mode and subagent features
+  "github.copilot.chat.agent.thinkingTool.enabled": true,
+
+  // Keep customizations scoped to this workspace (disable for monorepo setups)
+  "chat.useCustomizationsInParentRepositories": false,
+
+  // Explicit discovery paths — VS Code auto-discovers these from .github/ by default.
+  // Override here if you move customization files to a non-standard location.
+  "chat.promptFilesLocations": {
+    ".github/prompts": true
+  },
+  "chat.agentFilesLocations": {
+    ".github/agents": true
+  },
+  "chat.instructionsFilesLocations": {
+    ".github/instructions": true
+  }
+}

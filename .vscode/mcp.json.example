@@ -1,0 +1,50 @@
+{
+  "_INSTRUCTIONS": [
+    "HOW TO USE THIS FILE:",
+    "1. Copy this file to .vscode/mcp.json",
+    "2. For each server you want to enable: rename its key by removing the leading underscore",
+    "   Example: rename '_github' -> 'github'",
+    "3. Fill in secrets via environment variables — never hardcode values",
+    "4. Do NOT commit .vscode/mcp.json (add it to .gitignore)",
+    "",
+    "Keys starting with '_' are ignored by the VS Code MCP parser — this is how servers are disabled here."
+  ],
+  "servers": {
+
+    "_github": {
+      "_about": "GitHub MCP — read/write issues, PRs, code, and repository content via the GitHub API.",
+      "_enable": "Rename this key from '_github' to 'github' to activate.",
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-github"],
+      "env": {
+        "GITHUB_PERSONAL_ACCESS_TOKEN": "${env:GITHUB_TOKEN}"
+      }
+    },
+
+    "_filesystem": {
+      "_about": "Filesystem MCP — scoped read/write access to a local directory subtree.",
+      "_enable": "Rename this key from '_filesystem' to 'filesystem' to activate. Adjust the path arg to restrict the scope.",
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-filesystem",
+        "${workspaceFolder}"
+      ]
+    },
+
+    "_context7": {
+      "_about": "Context7 — fetch up-to-date library documentation and API references. No secrets required.",
+      "_enable": "Rename this key from '_context7' to 'context7' to activate.",
+      "command": "npx",
+      "args": ["-y", "@upstash/context7-mcp@latest"]
+    },
+
+    "_playwright": {
+      "_about": "Playwright MCP — browser automation for UI testing and web scraping.",
+      "_enable": "Rename this key from '_playwright' to 'playwright' to activate. Requires Node.js and Playwright browsers installed.",
+      "command": "npx",
+      "args": ["-y", "@playwright/mcp@latest"]
+    }
+
+  }
+}
