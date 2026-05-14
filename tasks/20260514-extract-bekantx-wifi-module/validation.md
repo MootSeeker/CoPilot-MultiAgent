@@ -402,3 +402,58 @@ No diagnostics reported for the changed queue, manager, and test files.
 
 - No static implementation defects were detected in the queue handoff slice.
 - Executable validation is still blocked by the missing host compiler and ESP-IDF environment.
+
+## Update — 2026-05-14
+
+**Validator run**: 2026-05-14 00:00 UTC
+
+### Build
+
+**Command**: `editor diagnostics on reconnect backoff files`  
+**Result**: PASS
+
+```text
+No syntax or editor-detected errors were reported for:
+- include/esp32_wifi_manager/WifiManagerTypes.hpp
+- include/esp32_wifi_manager/WifiManagerStateMachine.hpp
+- include/esp32_wifi_manager/WifiManager.hpp
+- src/WifiManagerStateMachine.cpp
+- src/WifiManager.cpp
+- tests/WifiManagerStateMachine.test.cpp
+```
+
+### Tests
+
+**Command**: `tests/WifiManagerStateMachine.test.cpp extended but not run`  
+**Scope**: host-side reconnect backoff regression coverage for delay growth, reset, and maximum-delay saturation  
+**Result**: NOT YET APPLICABLE in current environment
+
+```text
+The prepared host-side test file now covers:
+- retry threshold fallback behaviour
+- retry reset after success/provisioning
+- FIFO event ordering and queue capacity behaviour
+- reconnect delay growth after repeated failures
+- reconnect delay reset on success/provisioning/portal fallback
+- reconnect delay saturation at the configured maximum
+
+Execution remains blocked because no host C++ compiler is installed on this machine.
+```
+
+### Lint / Type Check
+
+**Command**: `editor diagnostics`  
+**Result**: PASS
+
+```text
+No diagnostics reported for the changed backoff-related header, source, and test files.
+```
+
+### Overall Verdict
+
+**PASS**
+
+### Failure Details
+
+- No static implementation defects were detected in the reconnect backoff slice.
+- Executable validation is still blocked by the missing host compiler and ESP-IDF environment.

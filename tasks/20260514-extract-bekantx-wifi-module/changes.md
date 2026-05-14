@@ -334,3 +334,49 @@ Added the next handoff slice by introducing a small FIFO `WifiManagerEventQueue`
 
 - The queue is still polled manually; it is not yet backed by a task loop or FreeRTOS event source.
 - The actual ESP-IDF WiFi and provisioning adapters still need to enqueue real connection and credential events into this boundary.
+
+## Update — 2026-05-14
+
+**Implementer run**: 2026-05-14 00:00 UTC  
+**Work Package**: WP-2
+
+### Summary
+
+Added the bounded reconnect backoff policy identified during exploration to the extracted state machine. Connection failures now produce a recommended retry delay derived from configuration, with exponential growth between attempts and saturation at a configured maximum. The public manager API exposes the current delay so a later task loop or ESP-IDF timer can schedule reconnect attempts without re-deriving policy outside the state machine.
+
+### Files Modified
+
+| File | Change type | Summary |
+|------|------------|---------|
+| `include/esp32_wifi_manager/WifiManagerTypes.hpp` | modified | Added configuration fields for initial and maximum reconnect delay. |
+| `include/esp32_wifi_manager/WifiManagerStateMachine.hpp` | modified | Added reconnect-delay tracking and accessor methods to the state machine API. |
+| `include/esp32_wifi_manager/WifiManager.hpp` | modified | Exposed the current recommended reconnect delay through the manager. |
+| `src/WifiManagerStateMachine.cpp` | modified | Implemented exponential backoff calculation, saturation, and reset semantics. |
+| `src/WifiManager.cpp` | modified | Routed connection-failure events through the new backoff-aware state-machine API. |
+| `tests/WifiManagerStateMachine.test.cpp` | modified | Added regression coverage for reconnect delay growth, reset, and max-delay saturation. |
+
+### Key Decisions
+
+- Kept backoff policy computation inside the state machine so retries, portal fallback, and delay resets remain one coherent behavioural surface.
+- Exposed only the resulting recommended delay, not a timer or scheduler, because runtime orchestration still belongs to the later ESP-IDF task/event layer.
+- Reset reconnect delay on success, provisioning, stop, and portal fallback so stale timing state cannot leak across lifecycle transitions.
+
+### Diff Highlights
+
+```diff
+~ include/esp32_wifi_manager/WifiManagerTypes.hpp
+~ include/esp32_wifi_manager/WifiManagerStateMachine.hpp
+~ include/esp32_wifi_manager/WifiManager.hpp
+~ src/WifiManagerStateMachine.cpp
+~ src/WifiManager.cpp
+~ tests/WifiManagerStateMachine.test.cpp
+```
+
+### Formatter Run
+
+- [x] Formatter executed on all modified files
+
+### Open Questions / Deferred Items
+
+- The reconnect delay is policy-only until a later runtime layer actually waits/schedules between attempts.
+- The extracted module still lacks the ESP-IDF task loop or timer integration that will consume the recommended delay value.
