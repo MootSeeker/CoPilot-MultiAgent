@@ -428,3 +428,51 @@ Turned the reconnect delay from passive metadata into an actionable retry bounda
 
 - The scheduler currently advances only when a caller explicitly provides elapsed time; a future ESP-IDF task/timer layer still needs to drive it.
 - The actual WiFi station connect implementation remains deferred; the new retry event only models when the next attempt should begin.
+
+## Update — 2026-05-14
+
+**Implementer run**: 2026-05-14 00:00 UTC  
+**Work Package**: WP-2
+
+### Summary
+
+Added the first thin ESP-IDF runtime adapter for the extracted module. The manager now has a dedicated `WifiManagerEspIdfAdapter` that registers WiFi/IP callbacks, normalises runtime callback data into module-owned `WifiManagerEvent` payloads, and starts station connection attempts automatically whenever the manager enters `kConnecting`. This is the first slice where the extracted state machine and event queue are tied to real ESP-IDF runtime APIs rather than only internal transitions.
+
+### Files Modified
+
+| File | Change type | Summary |
+|------|------------|---------|
+| `CMakeLists.txt` | modified | Added the ESP-IDF adapter source file to the component build. |
+| `include/esp32_wifi_manager/WifiManagerEspIdfAdapter.hpp` | added | Added the thin ESP-IDF adapter API and callback sink boundary. |
+| `include/esp32_wifi_manager/WifiManagerTypes.hpp` | modified | Added module-owned runtime status payload fields for disconnect reason and IP information. |
+| `include/esp32_wifi_manager/WifiManager.hpp` | modified | Wired the manager to the adapter and exposed runtime status snapshots. |
+| `src/WifiManagerEspIdfAdapter.cpp` | added | Implemented ESP-IDF WiFi/IP callback registration, event normalisation, and station connect requests. |
+| `src/WifiManager.cpp` | modified | Routed adapter events through the manager queue/dispatch path and applied adapter side effects from state transitions. |
+| `tests/WifiManagerStateMachine.test.cpp` | modified | Extended host-side queue tests to cover runtime status payload round-tripping. |
+
+### Key Decisions
+
+- Kept raw ESP-IDF structs inside the adapter implementation and exposed only module-owned `WifiRuntimeStatus` fields through the public event contract.
+- Routed adapter callbacks through `EnqueueEvent()` and `ProcessNextEvent()` instead of mutating manager state directly, preserving the queue boundary even before a dedicated runtime task exists.
+- Treated `IP_EVENT_STA_GOT_IP` as the actual success signal and `WIFI_EVENT_STA_DISCONNECTED` as the failure signal, matching the recommended runtime boundary from exploration.
+
+### Diff Highlights
+
+```diff
++ include/esp32_wifi_manager/WifiManagerEspIdfAdapter.hpp
++ src/WifiManagerEspIdfAdapter.cpp
+~ include/esp32_wifi_manager/WifiManagerTypes.hpp
+~ include/esp32_wifi_manager/WifiManager.hpp
+~ src/WifiManager.cpp
+~ tests/WifiManagerStateMachine.test.cpp
+```
+
+### Formatter Run
+
+- [x] Formatter executed on all modified files
+
+### Open Questions / Deferred Items
+
+- The adapter currently handles only station/IP callbacks; portal HTTP/DNS provisioning adapters are still deferred.
+- A later runtime loop still needs to drive `AdvanceRetryTimer()` periodically so queued retry events fire automatically in a real device run.
+- Host-side execution of tests remains blocked because no local C++ compiler is installed.

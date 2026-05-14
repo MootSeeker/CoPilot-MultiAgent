@@ -513,3 +513,55 @@ No diagnostics reported for the changed retry-scheduler, state-machine, manager,
 
 - No static implementation defects were detected in the retry-scheduler slice.
 - Executable validation is still blocked by the missing host compiler and ESP-IDF environment.
+
+## Update — 2026-05-14
+
+**Validator run**: 2026-05-14 00:00 UTC
+
+### Build
+
+**Command**: `editor diagnostics on ESP-IDF adapter files and queue/runtime payload tests`  
+**Result**: PASS
+
+```text
+No syntax or editor-detected errors were reported for:
+- CMakeLists.txt
+- include/esp32_wifi_manager/WifiManagerEspIdfAdapter.hpp
+- include/esp32_wifi_manager/WifiManagerTypes.hpp
+- include/esp32_wifi_manager/WifiManager.hpp
+- src/WifiManagerEspIdfAdapter.cpp
+- src/WifiManager.cpp
+- tests/WifiManagerStateMachine.test.cpp
+```
+
+### Tests
+
+**Command**: `tests/WifiManagerStateMachine.test.cpp extended but not run`  
+**Scope**: host-side queue/runtime payload regression coverage plus the existing state-machine, backoff, and retry-scheduler checks  
+**Result**: NOT YET APPLICABLE in current environment
+
+```text
+The prepared host-side test file now also covers:
+- runtime status payload preservation through WifiManagerEventQueue
+- disconnect reason round-trip on queued events
+
+Execution remains blocked because no host C++ compiler is installed on this machine.
+```
+
+### Lint / Type Check
+
+**Command**: `editor diagnostics`  
+**Result**: PASS
+
+```text
+No diagnostics reported for the changed adapter, manager, type, and test files.
+```
+
+### Overall Verdict
+
+**PASS**
+
+### Failure Details
+
+- No static implementation defects were detected in the ESP-IDF adapter slice.
+- Executable validation is still blocked by the missing host compiler and ESP-IDF environment.
