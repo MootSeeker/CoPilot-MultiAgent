@@ -1,0 +1,245 @@
+# Changes
+
+**Task ID**: 20260514-extract-bekantx-wifi-module  
+**Phase**: IMPLEMENT  
+**Implementer run**: <!-- YYYY-MM-DD HH:MM UTC -->  
+**Work Package**: <!-- WP-N from plan.md -->
+
+## Summary
+
+<!-- One paragraph: what was changed and why. -->
+
+## Files Modified
+
+| File | Change type | Summary |
+|------|------------|---------|
+| `src/example.ts` | modified | |
+
+## Key Decisions
+
+<!-- Any implementation decisions that deviate from or go beyond plan.md. Explain the reasoning. -->
+
+- 
+
+## Diff Highlights
+
+<!-- Paste or describe the most important diff sections — the ones a reviewer must understand. -->
+
+```diff
+// key change here
+```
+
+## Formatter Run
+
+- [ ] Formatter executed on all modified files
+
+## Open Questions / Deferred Items
+
+<!-- Anything that could not be addressed in this work package. -->
+
+- 
+
+## Next Phase
+
+Validate → write `validation.md`
+
+## Update — 2026-05-14
+
+**Implementer run**: 2026-05-14 00:00 UTC  
+**Work Package**: WP-1
+
+### Summary
+
+Created the first standalone scaffold in the target repository `MootSeeker/ESP32-WiFiManager` to establish a reusable ESP-IDF component boundary and a BekantX-independent public API. The first slice intentionally focuses on structure and integration seams before porting the full WiFi/provisioning runtime.
+
+### Files Modified
+
+| File | Change type | Summary |
+|------|------------|---------|
+| `README.md` | modified | Replaced placeholder repository description with module scope, goals, and layout. |
+| `CMakeLists.txt` | added | Added ESP-IDF component registration for the standalone module. |
+| `idf_component.yml` | added | Added component metadata for packaging and dependency declaration. |
+| `include/esp32_wifi_manager/WifiManagerTypes.hpp` | added | Added reusable public state/config/credential types. |
+| `include/esp32_wifi_manager/WifiManager.hpp` | added | Added decoupled public class API using callbacks instead of product-specific dependencies. |
+| `src/WifiManager.cpp` | added | Added initial implementation skeleton with lifecycle/state handling. |
+| `examples/basic/main/main.cpp` | added | Added a minimal example integration entry point. |
+
+### Key Decisions
+
+- Started with a component scaffold instead of copying BekantX files directly, because the source implementation is still coupled to `StatusIndicator`, MQTT credential storage, and BekantX provisioning assets.
+- Introduced callback-based state notification as the first reusable integration seam.
+- Kept the initial implementation intentionally minimal so the public API can stabilise before the full ESP-IDF runtime logic is transplanted.
+
+### Diff Highlights
+
+```diff
++ include/esp32_wifi_manager/WifiManager.hpp
++ src/WifiManager.cpp
++ examples/basic/main/main.cpp
+```
+
+### Formatter Run
+
+- [x] Formatter executed on all modified files
+
+### Open Questions / Deferred Items
+
+- The actual BekantX provisioning portal, credential store, and ESP-IDF event-driven state machine still need to be ported into this scaffold.
+- MQTT passthrough fields from BekantX remain explicitly deferred from the first extraction slice.
+
+## Update — 2026-05-14
+
+**Implementer run**: 2026-05-14 00:00 UTC  
+**Work Package**: WP-2
+
+### Summary
+
+Ported the BekantX credential persistence slice into the standalone module as a reusable NVS-backed `WifiCredentialStore`. This establishes the first real runtime service behind the scaffolded API and keeps credential handling independent from the still-deferred WiFi state machine and provisioning flow.
+
+### Files Modified
+
+| File | Change type | Summary |
+|------|------------|---------|
+| `CMakeLists.txt` | modified | Registered the new credential-store source file and added the `log` dependency used by ESP-IDF logging. |
+| `include/esp32_wifi_manager/WifiCredentialStore.hpp` | added | Added the public credential-store interface with `Load`, `Save`, and `Clear` operations. |
+| `src/WifiCredentialStore.cpp` | added | Added NVS-backed persistence for SSID/password storage using ESP-IDF `nvs_*` APIs. |
+
+### Key Decisions
+
+- Kept the store as a separate reusable class instead of wiring it into `WifiManager` immediately, so the persistence slice can be validated independently before the queue/state-machine port.
+- Used the existing public `WifiCredentials` type so persistence and manager logic share one data contract.
+- Made the NVS namespace configurable via constructor with a safe default (`wifi_mgr`) instead of introducing a Kconfig dependency in the extracted module's public API.
+
+### Diff Highlights
+
+```diff
++ include/esp32_wifi_manager/WifiCredentialStore.hpp
++ src/WifiCredentialStore.cpp
+~ CMakeLists.txt
+```
+
+### Formatter Run
+
+- [x] Formatter executed on all modified files
+
+### Open Questions / Deferred Items
+
+- `WifiManager` does not consume `WifiCredentialStore` yet; the next slice should wire persistence into startup/provisioning transitions.
+- BekantX-specific namespace configuration via `CONFIG_WIFI_MGR_NVS_NAMESPACE` remains intentionally deferred until the module's configuration model is defined.
+
+## Update — 2026-05-14
+
+**Implementer run**: 2026-05-14 00:00 UTC  
+**Work Package**: WP-2
+
+### Summary
+
+Wired the extracted credential store into `WifiManager::Start()` so the module now makes its initial runtime decision from persisted WiFi credentials: stored credentials lead to the connect path, while missing credentials fall back to the provisioning portal. This is the first functional bridge between the scaffolded manager API and the extracted runtime services.
+
+### Files Modified
+
+| File | Change type | Summary |
+|------|------------|---------|
+| `include/esp32_wifi_manager/WifiManager.hpp` | modified | Added private storage for active credentials and tracked whether credentials were loaded from NVS. |
+| `src/WifiManager.cpp` | modified | Changed startup logic to load credentials through `WifiCredentialStore` and choose `kConnecting` vs `kPortal` accordingly. |
+| `src/WifiCredentialStore.cpp` | modified | Added defensive zero-initialisation on load and a null-safe fallback for the NVS namespace. |
+
+### Key Decisions
+
+- Kept the integration at startup-state selection only; the manager still does not perform the real ESP-IDF connect flow until the event/queue state machine is ported.
+- Stored credentials are cached inside `WifiManager` now so the later connect implementation can reuse the same data instead of reloading from NVS again.
+- `ForceProvisioning()` continues to override stored credentials without deleting them, matching the expected operational behaviour for a temporary provisioning reset.
+
+### Diff Highlights
+
+```diff
+~ include/esp32_wifi_manager/WifiManager.hpp
+~ src/WifiManager.cpp
+~ src/WifiCredentialStore.cpp
+```
+
+### Formatter Run
+
+- [x] Formatter executed on all modified files
+
+### Open Questions / Deferred Items
+
+- `kConnecting` is still only a state transition; the actual ESP-IDF station connect sequence and retry handling remain to be ported.
+- The next extraction slice should add the queue/event boundary (`wifi_mgr_event` equivalent) so WiFi, portal, and credential-save events can drive one dispatcher.
+
+## Update — 2026-05-14
+
+**Implementer run**: 2026-05-14 00:00 UTC  
+**Work Package**: WP-3
+
+### Summary
+
+Added the missing ESP-IDF application CMake scaffolding under `examples/basic` so the repository now contains a structurally valid example app alongside the reusable component. This does not remove the external toolchain dependency, but it eliminates the repository-local build blocker that previously prevented any real example build attempt.
+
+### Files Modified
+
+| File | Change type | Summary |
+|------|------------|---------|
+| `examples/basic/CMakeLists.txt` | added | Added the top-level ESP-IDF project definition and pointed `EXTRA_COMPONENT_DIRS` at the reusable component root. |
+| `examples/basic/main/CMakeLists.txt` | added | Added component registration for the example app entry point and declared the WiFi manager component dependency. |
+
+### Key Decisions
+
+- Kept the example app minimal and focused on buildability instead of adding product-specific runtime behaviour.
+- Reused the component directly from the repository root via `EXTRA_COMPONENT_DIRS` so the example exercises the same extracted module layout that downstream users will consume.
+
+### Diff Highlights
+
+```diff
++ examples/basic/CMakeLists.txt
++ examples/basic/main/CMakeLists.txt
+```
+
+### Formatter Run
+
+- [x] Formatter executed on all modified files
+
+### Open Questions / Deferred Items
+
+- The example app still depends on a locally installed ESP-IDF environment (`idf.py` and `IDF_PATH`) before it can be built.
+- Runtime example behaviour remains intentionally minimal until the actual WiFi connection and provisioning loop are ported.
+
+## Update — 2026-05-14
+
+**Implementer run**: 2026-05-14 00:00 UTC  
+**Work Package**: WP-2
+
+### Summary
+
+Added the first generic event boundary to `WifiManager` by introducing public manager events for provisioning requests and credential submission. This mirrors the architecture discovered in BekantX, where HTTP handlers and ESP-IDF callbacks hand off events to the manager instead of mutating state directly.
+
+### Files Modified
+
+| File | Change type | Summary |
+|------|------------|---------|
+| `include/esp32_wifi_manager/WifiManagerTypes.hpp` | modified | Added public `WifiManagerEventType` and `WifiManagerEvent` types. |
+| `include/esp32_wifi_manager/WifiManager.hpp` | modified | Added `DispatchEvent()` as the manager's first neutral event-ingress API. |
+| `src/WifiManager.cpp` | modified | Implemented event handling for provisioning requests and provisioned credentials, including credential persistence and transition back to `kConnecting`. |
+
+### Key Decisions
+
+- Started with only the two event types already justified by the extracted control flow: provisioning request and credentials received.
+- Kept the event API synchronous for now; the later FreeRTOS queue can target the same boundary without changing the manager's core state transition logic.
+- Reused `WifiCredentialStore` inside the event path so the future portal flow persists credentials through the same code path as the startup loader.
+
+### Diff Highlights
+
+```diff
+~ include/esp32_wifi_manager/WifiManagerTypes.hpp
+~ include/esp32_wifi_manager/WifiManager.hpp
+~ src/WifiManager.cpp
+```
+
+### Formatter Run
+
+- [x] Formatter executed on all modified files
+
+### Open Questions / Deferred Items
+
+- The manager still lacks the actual asynchronous queue, ESP-IDF event adapters, and retry/backoff logic around these events.
+- Additional event types for connection success/failure and stop/shutdown should be added only when the corresponding runtime paths are ported.
