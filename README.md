@@ -8,7 +8,7 @@ Copy the `.github/` folder, `.vscode/mcp.json.example`, and `tasks/_template/` i
 | Primitive | Count | Purpose |
 |-----------|-------|---------|
 | Custom Agents | 8 | Role-based personas with minimal tool sets and handoffs |
-| Skills | 8 | On-demand reusable workflows (explore, implement, build, lint, review, …) |
+| Skills | 7 | On-demand reusable workflows (explore, implement, build, lint, review, …) |
 | Instructions | 4 | Always-on or glob-scoped rules (style, testing, security, handoffs) |
 | Prompts | 2 | `/new-task` bootstrap and `/handoff` phase transition |
 | MCP template | 1 | Pre-configured entries for GitHub, Filesystem, Context7, Playwright |
@@ -60,7 +60,7 @@ Alternatively, type `/new-task` in chat to bootstrap the task folder manually be
   copilot-instructions.md           ← always-on project rules
   instructions/                     ← file-scoped or on-demand rules
   agents/                           ← 8 custom agent definitions
-  skills/                           ← 8 reusable skill workflows
+  skills/                           ← 7 reusable skill workflows
   prompts/                          ← /new-task and /handoff prompts
 .vscode/
   mcp.json.example                  ← MCP server template (copy → mcp.json)
@@ -87,7 +87,7 @@ docs/
 - **File-based handoffs** over in-memory state: artifacts survive crashes, are human-readable, and enable async review.
 - **Strict tool allowlists**: each agent can only use what its role requires — prevents accidental destructive operations.
 - **Append-only artifacts**: phase outputs are never deleted, enabling full audit trails.
-- **Generic core + example specialists**: the pipeline works for any codebase; firmware/protocol agents are opt-in templates.
+- **Generic core + optional specialists**: the pipeline works for any codebase; firmware and protocol specialists are opt-in templates.
 
 ## Requirements
 

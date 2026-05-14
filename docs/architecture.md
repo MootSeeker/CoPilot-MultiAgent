@@ -69,7 +69,7 @@ tasks/
 
 For domain-specific projects, specialist agents can be added alongside the generic ones:
 
-- **Firmware Engineer** — ESP-IDF builds, HAL layer changes, peripheral drivers.
+- **Firmware Engineer** — vendor-neutral embedded C/C++ development for microcontroller-based systems, especially Cortex-M0+, M4, and M33 targets.
 - **Protocol Specialist** — Wire-format changes, codec updates, backwards-compatibility analysis.
 
 These are included in the repo as template examples under `.github/agents/`.

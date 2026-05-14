@@ -1,6 +1,6 @@
 ---
 description: "Use when writing, reviewing, or refactoring source code. Covers naming conventions, formatting, import order, and language-specific style rules. Customize the placeholder sections for your project's languages and tooling."
-applyTo: ["src/**", "lib/**", "app/**", "firmware/**", "tests/**"]
+applyTo: ["src/**", "lib/**", "app/**", "tests/**"]
 ---
 
 # Code Style
@@ -69,7 +69,7 @@ applyTo: ["src/**", "lib/**", "app/**", "firmware/**", "tests/**"]
 - Use `pathlib.Path` over `os.path`.
 -->
 
-### C / C++ (e.g. ESP-IDF)
+### C / C++
 
 <!-- Uncomment and fill in:
 - Follow the project's .clang-format config.

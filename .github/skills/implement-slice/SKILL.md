@@ -74,4 +74,4 @@ Fill in `tasks/<task-id>/changes.md` using the schema from `tasks/_template/chan
 - Touching files not listed in `exploration.md` without adding them to `changes.md`
 - Skipping tests because "it's a small change"
 - Implementing multiple work packages in one invocation
-- Leaving debug output (`console.log`, `print`, `ESP_LOGI` debug noise) in production paths
+- Leaving debug output (`console.log`, `print`, verbose temporary logging) in production paths

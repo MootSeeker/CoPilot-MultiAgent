@@ -7,7 +7,7 @@ Quick reference card for every agent in the system. For full definitions see the
 ## Orchestrator
 
 **File**: [`.github/agents/orchestrator.agent.md`](../.github/agents/orchestrator.agent.md)  
-**Tools**: `read`, `edit`, `search`, `agent`, `todo`, `memory`
+**Tools**: `read`, `edit`, `search`, `agent`, `todo`
 
 | | |
 |-|-|
@@ -112,7 +112,7 @@ Quick reference card for every agent in the system. For full definitions see the
 **Tools**: `read`, `edit`, `search`, `execute`  
 **Status**: disabled by default (`user-invocable: false`)
 
-Domain: ESP-IDF, HAL, FreeRTOS, peripheral drivers, IRAM placement, interrupt safety.
+Domain: vendor-neutral embedded C/C++ on microcontroller-based systems, with current focus on Cortex-M0+, Cortex-M4, and Cortex-M33 targets.
 
 To enable: set `user-invocable: true` in the agent frontmatter and customise the project-specific sections.
 
