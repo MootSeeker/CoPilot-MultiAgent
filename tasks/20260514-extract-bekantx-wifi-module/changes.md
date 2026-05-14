@@ -243,3 +243,52 @@ Added the first generic event boundary to `WifiManager` by introducing public ma
 
 - The manager still lacks the actual asynchronous queue, ESP-IDF event adapters, and retry/backoff logic around these events.
 - Additional event types for connection success/failure and stop/shutdown should be added only when the corresponding runtime paths are ported.
+
+## Update — 2026-05-14
+
+**Implementer run**: 2026-05-14 00:00 UTC  
+**Work Package**: WP-2
+
+### Summary
+
+Ported the next state-machine slice by adding explicit connection success/failure events, bounded retry tracking, and fallback to portal mode after the configured retry threshold. To keep this logic testable outside ESP-IDF, the retry and transition rules now live in a dedicated `WifiManagerStateMachine` class, and a small host-side regression test target has been added for future execution once a compiler is available.
+
+### Files Modified
+
+| File | Change type | Summary |
+|------|------------|---------|
+| `CMakeLists.txt` | modified | Added the state-machine source file to the ESP-IDF component build. |
+| `include/esp32_wifi_manager/WifiManagerTypes.hpp` | modified | Added connection success/failure event types to the public event contract. |
+| `include/esp32_wifi_manager/WifiManager.hpp` | modified | Wired the manager to the reusable state machine helper. |
+| `include/esp32_wifi_manager/WifiManagerStateMachine.hpp` | added | Added a testable state-machine abstraction for retry and transition rules. |
+| `src/WifiManager.cpp` | modified | Delegated start/provisioning/connect/failure transitions to the state machine. |
+| `src/WifiManagerStateMachine.cpp` | added | Implemented retry counting, success reset, and portal fallback behaviour. |
+| `tests/CMakeLists.txt` | added | Added a host-side test target definition for the state machine. |
+| `tests/WifiManagerStateMachine.test.cpp` | added | Added regression coverage for retry threshold and reset behaviour. |
+
+### Key Decisions
+
+- Extracted transition logic into a dedicated class before adding more runtime paths, so subsequent ESP-IDF event integration can stay thin and the core behaviour remains testable.
+- Kept retry handling synchronous and state-only for now; exponential backoff timing remains deferred until the actual WiFi task/event loop exists.
+- Moved the state-machine header onto the exported include path so `WifiManager.hpp` does not depend on a private `src/` header.
+
+### Diff Highlights
+
+```diff
++ include/esp32_wifi_manager/WifiManagerStateMachine.hpp
++ src/WifiManagerStateMachine.cpp
++ tests/WifiManagerStateMachine.test.cpp
+~ include/esp32_wifi_manager/WifiManagerTypes.hpp
+~ include/esp32_wifi_manager/WifiManager.hpp
+~ src/WifiManager.cpp
+```
+
+### Formatter Run
+
+- [x] Formatter executed on all modified files
+
+### Open Questions / Deferred Items
+
+- Retry timing/backoff is still policy-only; there is no timer-driven reconnect scheduling yet.
+- The manager still needs the asynchronous event queue and ESP-IDF adapters that will emit these new connection outcome events.
+- The new host-side tests are prepared but cannot yet run in this environment because no host C++ compiler is installed.

@@ -289,3 +289,65 @@ No diagnostics reported for the changed event-boundary header and source files.
 
 - No implementation defects were detected in the initial event-boundary slice.
 - The remaining work is functional completion of the WiFi state machine around these events.
+
+## Update — 2026-05-14
+
+**Validator run**: 2026-05-14 00:00 UTC
+
+### Build
+
+**Command**: `editor diagnostics on state-machine and test files, plus environment check via Get-Command cl/g++/clang++/cmake`  
+**Result**: PASS for static integration / executable host test build unavailable in this environment
+
+```text
+No syntax or editor-detected errors were reported for:
+- CMakeLists.txt
+- include/esp32_wifi_manager/WifiManagerTypes.hpp
+- include/esp32_wifi_manager/WifiManager.hpp
+- include/esp32_wifi_manager/WifiManagerStateMachine.hpp
+- src/WifiManager.cpp
+- src/WifiManagerStateMachine.cpp
+- tests/CMakeLists.txt
+- tests/WifiManagerStateMachine.test.cpp
+
+Host tool availability check:
+- cl -> Not Found
+- g++ -> Not Found
+- clang++ -> Not Found
+- cmake.exe -> C:\Program Files\CMake\bin\cmake.exe
+
+Conclusion: the new state-machine and test sources are structurally valid, but the host-side test target cannot be built on this machine until a C++ compiler is installed.
+```
+
+### Tests
+
+**Command**: `tests/WifiManagerStateMachine.test.cpp prepared but not run`  
+**Scope**: host-side regression coverage for retry threshold and retry reset behaviour in `WifiManagerStateMachine`  
+**Result**: NOT YET APPLICABLE in current environment
+
+```text
+The repository now contains explicit behavioural tests for:
+- retrying connection failures before portal fallback
+- resetting retry count after connection success
+- resetting retry count when provisioning is requested
+
+Those tests could not be executed here because no host C++ compiler is available.
+```
+
+### Lint / Type Check
+
+**Command**: `editor diagnostics`  
+**Result**: PASS
+
+```text
+No diagnostics reported for the changed header/source/test files in the state-machine slice.
+```
+
+### Overall Verdict
+
+**PASS**
+
+### Failure Details
+
+- No static implementation defects were detected in the retry-aware state-machine slice.
+- Behavioural execution is blocked by missing host compiler tooling; ESP-IDF runtime validation remains blocked separately by the missing ESP-IDF environment.
