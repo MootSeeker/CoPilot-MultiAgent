@@ -51,7 +51,7 @@ Then open `tasks/20260514-your-slug/plan.md` and fill in the goal.
 
 ## Artifact Rules
 
-1. **Append-only**: Never delete existing content. Add dated section headers when updating.
+1. **Template seed, then append-only**: replace copied placeholder text when writing the first real phase output. After that, never delete existing content; add dated section headers when updating.
 2. **Self-contained**: Each file must be readable without opening the source code.
 3. **No secrets**: Never write tokens, passwords, or credentials into artifact files.
 

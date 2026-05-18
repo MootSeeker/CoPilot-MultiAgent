@@ -24,10 +24,14 @@ You will receive the **current phase name** and the **task ID** as input.
 ### Step 2 — Verify completeness
 
 Open the current artifact. Check:
-- [ ] No template placeholder text remains (no `<!-- ... -->` comments with "fill in" instructions)
+- [ ] The latest owner-written phase content is complete and contains no unresolved template placeholder text
 - [ ] All required section headings are present (see `write-task-artifact` skill for the schema)
 - [ ] `## Next Phase` line is present and points to the correct next phase
 - [ ] For `validation.md`: Overall Verdict is **PASS** (not FAIL) before proceeding to review
+
+Notes:
+- The first owner write may replace the copied template content in place.
+- After an artifact contains real phase output, later updates must be appended under a dated update section rather than overwriting prior content.
 
 If any check fails:
 - Report the missing sections to the user.

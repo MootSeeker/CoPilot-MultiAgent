@@ -1,7 +1,9 @@
 # CoPilot-MultiAgent
 
-A reusable scaffold for **multi-agent AI orchestration** inside VS Code with GitHub Copilot.
-Copy the `.github/` folder, `.vscode/mcp.json.example`, and `tasks/_template/` into any project to get a five-phase pipeline: **Plan → Explore → Implement → Validate → Review**.
+A reusable **meta-template** for multi-agent AI orchestration inside VS Code with GitHub Copilot.
+Copy the scaffold into another project, then customize the placeholder commands, conventions, and project-specific guidance before using the pipeline: **Plan → Explore → Implement → Validate → Review**.
+
+> This repository is intentionally generic. It is meant to be adapted inside a target project, not used unchanged as a turnkey workflow.
 
 ## What you get
 
@@ -20,7 +22,10 @@ Copy the `.github/` folder, `.vscode/mcp.json.example`, and `tasks/_template/` i
 
 ```bash
 # From this repo, copy the scaffold into your target project
+mkdir -p /path/to/your-project/.vscode /path/to/your-project/tasks
 cp -r .github/ /path/to/your-project/
+cp -r docs/ /path/to/your-project/
+cp tasks/README.md /path/to/your-project/tasks/README.md
 cp -r tasks/_template/ /path/to/your-project/tasks/
 cp .vscode/mcp.json.example /path/to/your-project/.vscode/mcp.json.example
 ```
@@ -33,7 +38,13 @@ cp .vscode/mcp.json.example .vscode/mcp.json
 # Edit .vscode/mcp.json — fill in server paths and secrets via env vars
 ```
 
-> `.vscode/mcp.json` is gitignored by convention (contains secrets). Commit only `mcp.json.example`.
+Ensure your target project's `.gitignore` contains:
+
+```gitignore
+.vscode/mcp.json
+```
+
+Commit only `mcp.json.example`.
 
 ### 3 — Start a task
 
@@ -51,6 +62,8 @@ Alternatively, type `/new-task` in chat to bootstrap the task folder manually be
 
 - Edit `.github/copilot-instructions.md` — add project-specific architecture notes, build commands, and team conventions.
 - Update skill bodies in `.github/skills/build-and-test/SKILL.md` and `.github/skills/lint-and-typecheck/SKILL.md` — replace placeholder build/test commands with your actual commands.
+- Replace placeholder project rules in `.github/instructions/code-style.instructions.md` and any specialist templates you keep enabled.
+- Keep `docs/` if you want the copied scaffold to retain the built-in architecture and lifecycle references; otherwise replace those links with project-local docs.
 - Enable specialist agents (`firmware-engineer`, `protocol-specialist`) by removing `user-invocable: false` from their frontmatter if relevant.
 
 ## Repository Layout

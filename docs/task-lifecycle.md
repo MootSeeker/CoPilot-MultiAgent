@@ -108,7 +108,7 @@ This convention is human-readable, chronologically sortable, and requires no cen
 
 ## Artifact Rules
 
-1. **Append-only**: Never delete or overwrite existing content in an artifact. Add a dated section header when updating.
+1. **Template seed, then append-only**: the owning agent may replace the copied template placeholders once when writing the first real phase output. After that, never delete or overwrite existing content; add a dated section header when updating.
 2. **Owner discipline**: Only the owning agent writes the primary content; later agents may append notes in a clearly marked `## Notes from <phase>` section.
 3. **Self-contained**: Each artifact must be readable standalone — include enough context that a human can understand it without opening the code.
 

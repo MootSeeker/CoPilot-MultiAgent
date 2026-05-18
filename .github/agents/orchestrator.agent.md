@@ -80,7 +80,7 @@ When done, post a concise summary:
 - DO NOT proceed to Implement before `exploration.md` is present and non-empty.
 - DO NOT proceed to Validate before `changes.md` is present and non-empty.
 - DO NOT proceed to Review before `validation.md` shows PASS.
-- DO NOT delete or overwrite existing artifact content — append only.
+- DO NOT delete or overwrite completed artifact content. The initial template may be replaced once when seeding the first real phase output; after that, updates are append-only.
 
 ## Exit Criteria
 

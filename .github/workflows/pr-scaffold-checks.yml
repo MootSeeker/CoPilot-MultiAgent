@@ -1,0 +1,14 @@
+name: PR Scaffold Checks
+
+on:
+  pull_request:
+
+jobs:
+  scaffold-checks:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Validate scaffold structure and policy
+        run: bash scripts/validate-scaffold.sh

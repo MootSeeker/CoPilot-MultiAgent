@@ -9,13 +9,14 @@ These rules apply to all Markdown files under `tasks/`. They are enforced by all
 
 ## Append-Only Discipline
 
-- **Never delete** existing content from an artifact file.
-- **Never overwrite** a prior section. If you need to update information, add a new dated section:
+- A freshly copied template may be **seeded once** by replacing placeholder text with the owner's first real phase output.
+- After that initial seed, **never delete** existing content from an artifact file.
+- After that initial seed, **never overwrite** a prior completed section. If you need to update information, add a new dated section:
   ```markdown
   ## Update — 2026-05-14
   ...
   ```
-- Each agent appends its own section; it does not edit content written by earlier agents.
+- Each agent appends its own section after the initial seed; it does not edit content written by earlier agents.
 
 ## Ownership
 

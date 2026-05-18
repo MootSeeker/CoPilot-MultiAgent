@@ -1,7 +1,10 @@
 # Project: CoPilot-MultiAgent — Workspace Instructions
 
-This repository is a **reusable scaffold** for multi-agent orchestration inside VS Code with GitHub Copilot.
+This repository is a **reusable meta-template** for multi-agent orchestration inside VS Code with GitHub Copilot.
 It ships agents, skills, instructions, prompts, and MCP configuration that you copy into your own project.
+
+After copying it into a target project, replace the placeholder build, lint, test, and style guidance before treating the workflow as authoritative.
+If you keep the links in this file, copy the companion `docs/` folder too or update the references to your own project documentation.
 
 ## Architecture Overview
 
@@ -30,7 +33,7 @@ Every agent that produces a phase output **must** write its artifact before fini
 | Validate | `tasks/<id>/validation.md` | Validator |
 | Review | `tasks/<id>/review.md` | Reviewer |
 
-Artifacts are **append-only**. Never delete or overwrite a prior phase's content.
+Artifacts become **append-only after the first real phase write**. A copied template may be replaced once while seeding an artifact; after that, never delete or overwrite prior phase content.
 
 ## Response Style
 

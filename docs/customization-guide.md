@@ -153,6 +153,8 @@ How to extend the scaffold with new agents, skills, MCP servers, and instruction
 
 ## Bootstrapping into a New Project
 
+This repository is a meta-template. The copied files are expected to be customized for the target project's commands, architecture, and conventions.
+
 Minimum files to copy:
 
 ```
@@ -179,6 +181,11 @@ Minimum files to copy:
 .vscode/
   mcp.json.example
   settings.json
+docs/
+  architecture.md
+  task-lifecycle.md
+  agent-roles.md
+  customization-guide.md
 tasks/
   README.md
   _template/
@@ -193,5 +200,7 @@ After copying:
 1. Edit `.github/copilot-instructions.md` — add your project's architecture, build commands, and conventions.
 2. Edit `.github/skills/build-and-test/SKILL.md` — replace placeholder commands with your actual `build` / `test` commands.
 3. Edit `.github/skills/lint-and-typecheck/SKILL.md` — replace placeholder commands with your linter.
-4. Enable specialist agents (`firmware-engineer`, `protocol-specialist`) if relevant.
-5. Copy `.vscode/mcp.json.example` → `.vscode/mcp.json` and configure the servers you need.
+4. Replace placeholder rules in `.github/instructions/code-style.instructions.md` and any other template guidance you keep.
+5. Add `.vscode/mcp.json` to the target project's `.gitignore` before creating the local MCP config.
+6. Enable specialist agents (`firmware-engineer`, `protocol-specialist`) if relevant.
+7. Copy `.vscode/mcp.json.example` → `.vscode/mcp.json` and configure the servers you need.

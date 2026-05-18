@@ -39,7 +39,7 @@ Given `plan.md` and `exploration.md`, implement one work package. Write `changes
 - DO NOT run build or test commands — that is the Validator's job.
 - DO NOT run arbitrary shell commands — only the project formatter.
 - DO NOT implement multiple work packages in one invocation.
-- DO NOT delete or overwrite existing content in artifact files — append only.
+- DO NOT delete or overwrite completed content in artifact files. A copied template may be seeded once with the first real phase output; later updates are append-only.
 - DO NOT hard-code secrets, credentials, or environment-specific values.
 
 ## Exit Criteria

@@ -14,6 +14,10 @@ Correctly create or update a task handoff artifact, following the append-only ru
 - Writing the output artifact after completing a pipeline phase.
 - Appending an update to an existing artifact without overwriting prior content.
 
+The lifecycle has two modes:
+- **Initial owner write**: replace the copied template placeholders with real phase content.
+- **Subsequent updates**: append a dated update section; do not rewrite prior completed content.
+
 ## Artifact Schemas
 
 ### plan.md (written by Orchestrator)
@@ -77,6 +81,11 @@ Required sections:
 
 ## Append-Only Rule
 
+The append-only rule starts **after** the owning agent has replaced the copied template with its first real phase output.
+
+For a freshly copied template file, the owner may replace placeholder text in place so the artifact becomes a real phase record.
+Once that initial phase record exists, later updates must be appended.
+
 When adding an update to an **existing** artifact, always append a new section:
 
 ```markdown
@@ -85,12 +94,12 @@ When adding an update to an **existing** artifact, always append a new section:
 <!-- New content here — do not edit any section above this line -->
 ```
 
-Never edit, delete, or overwrite prior sections.
+Never edit, delete, or overwrite prior completed sections.
 
 ## Procedure
 
 1. Determine which artifact to write and the task ID.
 2. Copy the template from `tasks/_template/<artifact>.md` if creating fresh.
-3. Fill in all required sections completely — no placeholder text in the output.
-4. Append, do not overwrite, if the file already exists.
+3. If the file still contains only copied template placeholders, replace them with complete phase output.
+4. If the file already contains real phase content, append a dated update section instead of overwriting it.
 5. Confirm the `## Next Phase` line points to the correct next agent.
